@@ -16,6 +16,7 @@ use crate::commands::user::{help, lfg_create};
 use crate::data::Data;
 use crate::database::ensure_database;
 use crate::events::handle_event;
+use crate::helpers::cleanup::cleanup_announcement;
 use crate::housekeeping::housekeeping_loop;
 use crate::managers::guild_config::GuildConfigManager;
 use crate::managers::session::SessionManager;
@@ -82,11 +83,8 @@ async fn main() {
                             Err(serenity_prelude::Error::Http(http_err))
                                 if http_err.status_code() == Some(StatusCode::NOT_FOUND) =>
                             {
-                                if let Err(e) = session.announcement_channel_id.delete_message(&ctx.http, session.announcement_message_id).await {
-                                    tracing::warn!("Failed cleaning up announcement {}: {e}", session.announcement_message_id);
-                                }
+                                cleanup_announcement(&ctx.http, &session).await;
                                 session_manager.remove_channel(session.post_id).await?;
-                                ()
                             },
                             Err(e) => {
                                 tracing::warn!("Could not verify channel ID {}: {e}", session.post_id)
@@ -95,8 +93,8 @@ async fn main() {
                     }
                 },
                 Err(e) => {
-                    tracing::error!("Cannot gather all sessions, initial session check failed: {e}");
-                    panic!("Cannot gather all sessions, initial session check failed")
+                    tracing::error!("Cannot collect all sessions, initial session check failed: {e}");
+                    panic!("Cannot collect all sessions, initial session check failed")
                 }
             }
 
@@ -106,7 +104,7 @@ async fn main() {
             let http_housekeeping = ctx.http.clone();
             let ctx_presence = ctx.clone();
             
-            // changing presence every 60 seconds for funsies
+            // changing presence for funsies
             tokio::spawn(async move {
                 presence_loop(ctx_presence).await
             });

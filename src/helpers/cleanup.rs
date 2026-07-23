@@ -18,7 +18,7 @@ pub async fn cleanup_post(
                 match session.post_id.send_message(http, CreateMessage::new().content("Gather could not delete this post because it is missing permissions. Please ask an Administrator to check my permissions.")).await {
                     Ok(_) => {
                         if let Err(e) = session_manager.mark_permission_warning_sent(session.post_id).await {
-                            tracing::error!("Failed marking permission warning sent for post {}: {e}", session.post_id);
+                            tracing::error!("Failed marking permission warning sent for session {}: {e}", session.post_id);
                         };
                     }
 
@@ -26,6 +26,8 @@ pub async fn cleanup_post(
                         tracing::warn!("Failed sending message: {e}");
                     }
                 }
+            } else {
+                tracing::warn!("Failed deleting session post {}: {e}", session.post_id)
             }
         }
     }
@@ -37,6 +39,6 @@ pub async fn cleanup_announcement(
     session: &Session
 ) {
     if let Err(e) = session.announcement_channel_id.delete_message(http, session.announcement_message_id).await {
-        tracing::warn!("Failed cleaning up announcement {}: {e}", session.announcement_message_id);
+        tracing::warn!("Failed cleaning up announcement {} for session post {}: {e}", session.announcement_message_id, session.post_id);
     };
 }

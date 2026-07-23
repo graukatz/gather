@@ -1,7 +1,8 @@
 use crate::helpers::autocomplete::autocomplete_lfg_type;
 use poise::{serenity_prelude, CreateReply};
-use poise::serenity_prelude::{ChannelId, CreateEmbed, CreateEmbedFooter, Role};
+use poise::serenity_prelude::{ChannelId, Role};
 use crate::data::{Context, Error};
+use crate::helpers::permissions::generate_check_permissions_reply;
 
 /// Administrator: Create or update a specified type
 #[poise::command(slash_command, rename="gthr-add-type", default_member_permissions = "ADMINISTRATOR", guild_only)]
@@ -145,11 +146,19 @@ pub async fn gthr_channel_config(ctx: Context<'_>,
         .set_config(guild_id, forum_id, lfg_command_channel_id)
         .await?;
 
-    ctx.send(
-        CreateReply::default()
-            .content("Configuration updated")
-            .ephemeral(true)
-    ).await?;
+    if let Ok(Some(reply)) = generate_check_permissions_reply(ctx).await {
+        if let Some(_) = reply.content {
+            ctx.send(
+                CreateReply::default()
+                    .content("Configuration updated, permissions have been checked")
+                    .ephemeral(true)
+            ).await?;
+        } else {
+            ctx.send(
+                reply.content("Configuration updated\n## However, you should know that...")
+            ).await?;
+        }
+    };
 
     Ok(())
 }
@@ -157,156 +166,9 @@ pub async fn gthr_channel_config(ctx: Context<'_>,
 /// Administrator: Check if Gather has all permissions it requires
 #[poise::command(slash_command, rename="gthr-check-permissions", default_member_permissions = "ADMINISTRATOR", guild_only)]
 pub async fn gthr_check_permissions(ctx: Context<'_>) -> Result<(), Error> {
-    let guild_id = ctx.guild_id().ok_or("Command can only be used in a server")?;
-    let guild = guild_id.to_partial_guild(&ctx.http()).await?;
-
-    let bot_id = ctx.framework().bot_id;
-    let bot_member = guild.member(&ctx.http(), bot_id).await?;
-
-    //TODO duplicate code
-    let forum_id = match ctx.data().config_manager.get_forum_id(guild_id).await {
-        Some(forum_id) => forum_id,
-
-        None => {
-            ctx.send(
-                CreateReply::default()
-                    .content("This server has no channels configured. Configure channels using '/gthr-channel-config'")
-                    .ephemeral(true)
-            ).await?;
-
-            return Ok(())
-        }
+    if let Ok(Some(reply)) = generate_check_permissions_reply(ctx).await {
+        ctx.send(reply).await?;
     };
-    let forum = match forum_id.to_channel(ctx.http()).await {
-        Ok(forum) => {
-            match forum.guild() {
-                Some(guild_channel) => guild_channel,
-                None => {
-                    ctx.send(
-                        CreateReply::default()
-                            .content("This server has no channels configured. Configure channels using '/gthr-channel-config'")
-                            .ephemeral(true)
-                    ).await?;
-
-                    return Ok(())
-                }
-            }
-        },
-
-        Err(e) => {
-            ctx.send(
-                CreateReply::default()
-                    .content(format!("{e} | Configure channels using '/gthr-channel-config'"))
-                    .ephemeral(true)
-            ).await?;
-
-            return Ok(())
-        }
-    };
-
-    let lfg_command_channel_id = match ctx.data().config_manager.get_lfg_command_channel(guild_id).await {
-        Some(lfg_command_channel_id) => lfg_command_channel_id,
-
-        None => {
-            ctx.send(
-                CreateReply::default()
-                    .content("This server has no channels configured. Configure channels using '/gthr-channel-config'")
-                    .ephemeral(true)
-            ).await?;
-
-            return Ok(())
-        }
-    };
-    let lfg_command_channel = match lfg_command_channel_id.to_channel(ctx.http()).await {
-        Ok(command_channel) => {
-            match command_channel.guild() {
-                Some(guild_channel) => guild_channel,
-                None => {
-                    ctx.send(
-                        CreateReply::default()
-                            .content("This server has no channels configured. Configure channels using '/gthr-channel-config'")
-                            .ephemeral(true)
-                    ).await?;
-
-                    return Ok(())
-                }
-            }
-        },
-
-        Err(e) => {
-            ctx.send(
-                CreateReply::default()
-                    .content(format!("{e} | Configure channels using '/gthr-channel-config'"))
-                    .ephemeral(true)
-            ).await?;
-
-            return Ok(())
-        }
-    };
-
-    let forum_permissions = guild.user_permissions_in(&forum, &bot_member);
-    let lfg_command_channel_permissions = guild.user_permissions_in(&lfg_command_channel, &bot_member);
-
-    let mut forum_missing = Vec::new();
-    let mut lfg_command_channel_missing = Vec::new();
-
-    if !forum_permissions.view_channel() {
-        forum_missing.push("- View Channel")
-    }
-    if !forum_permissions.send_messages() || !forum_permissions.send_messages_in_threads() {
-        forum_missing.push("- Create Posts / Send Messages")
-    }
-    if !forum_permissions.create_public_threads() {
-        forum_missing.push("- Create Public Threads")
-    }
-    if !forum_permissions.manage_channels() {
-        forum_missing.push("- Manage Channels")
-    }
-    if !forum_permissions.read_message_history() {
-        forum_missing.push("- Read Message History")
-    }
-
-    if !lfg_command_channel_permissions.view_channel() {
-        lfg_command_channel_missing.push("- View Channel")
-    }
-    if !lfg_command_channel_permissions.send_messages() {
-        lfg_command_channel_missing.push("- Send Messages")
-    }
-    if !lfg_command_channel_permissions.manage_messages() {
-        lfg_command_channel_missing.push("- Manage Messages")
-    }
-    if !lfg_command_channel_permissions.mention_everyone() {
-        lfg_command_channel_missing.push("- Mention @everyone, @here and All Roles")
-    }
-    if !lfg_command_channel_permissions.read_message_history() {
-        lfg_command_channel_missing.push("- Read Message History")
-    }
-
-    let mut reply = CreateReply::default()
-        .ephemeral(true);
-
-    if forum_missing.len() == 0 && lfg_command_channel_missing.len() == 0 {
-        reply = reply.content("Gather has all necessary permissions");
-    } else {
-        let mut embed = CreateEmbed::new()
-            .color(0xA8B31E)
-            .title("Gather is missing permissions!")
-            .footer(
-                CreateEmbedFooter::new("Try re-adding Gather to your server or check the channel overrides")
-            );
-
-        if forum_missing.len() > 0 {
-            embed = embed.field("LFG Forum Channel", format!("{}\n{}", forum, forum_missing.join("\n")), true);
-        }
-
-        if lfg_command_channel_missing.len() > 0 {
-            embed = embed.field("LFG Command Channel", format!("Link: {}\n{}", lfg_command_channel, lfg_command_channel_missing.join("\n")), true);
-        }
-
-        reply = reply.embed(embed)
-    }
-
-    ctx.send(reply).await?;
 
     Ok(())
 }

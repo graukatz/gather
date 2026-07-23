@@ -1,7 +1,7 @@
 use poise::serenity_prelude::{ActivityData, Context};
 
 pub async fn presence_loop(ctx: Context) {
-    const CYCLE_TIME_SECONDS: u64 = 30;
+    const CYCLE_TIME_SECONDS: u64 = 30; // default 30
 
     let activities = [
         "observing... | /help",

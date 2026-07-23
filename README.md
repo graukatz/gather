@@ -61,7 +61,7 @@ Configures the forum used for LFG posts and the channel where `/lfg-create` must
 
 ### Check Permissions
 
-> Note: It is highly recommended to run `/gthr-check-permissions` after each channel config change to ensure full functionality.
+> Note: Even though Gather performs a permission check when you run `/gthr-channel-config FORUM COMMAND`, it is highly recommended that you run the `/gthr-check-permissions` command after every change to permissions to ensure full functionality.
 
 Check if Gather has all permissions it requires. Administrator permissions required.
 
@@ -70,7 +70,7 @@ Check if Gather has all permissions it requires. Administrator permissions requi
 ## Build Requirements
 
 * [Rust](https://rust-lang.org/tools/install/)
-* A Discord bot [application](https://discord.com/developers/applications)
+* [A Discord bot application](https://discord.com/developers/applications)
 * A Discord server
 
 ## Installation
@@ -79,9 +79,9 @@ There are two ways to get Gather running
 
 ### Public Bot:
 
-* Invite the [bot](https://discord.com/oauth2/authorize?client_id=1525546166979133701)
+* [Invite the bot](https://discord.com/oauth2/authorize?client_id=1525546166979133701)
 
-### Build the bot:
+### Build & host yourself:
 
 Clone the repository
 
@@ -96,7 +96,7 @@ Create a `.env` file (or otherwise provide the DISCORD_TOKEN environment variabl
 DISCORD_TOKEN=<token>
 ```
 
-Run Gather:
+Run Gather
 
 ```bash
 cargo run --release

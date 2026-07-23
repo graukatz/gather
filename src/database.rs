@@ -8,8 +8,6 @@ pub async fn ensure_database() -> SqlitePool {
     if let Err(e) = fs::create_dir_all(DB_URL).await {
         tracing::error!("Failed creating data directory: {e}");
         panic!("Failed creating data directory")
-    } else {
-        tracing::info!("Created data directory")
     }
 
     let database_url = "sqlite:data/gather.db";
